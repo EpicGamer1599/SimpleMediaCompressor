@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simplemediacompressure"
+dynamic = ["version"]
+description = "A polished, local Pygame desktop app for image, video and audio compression"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "SimpleMediaCompressure contributors"}]
+dependencies = ["pygame-ce==2.5.8", "Pillow==12.3.0", "psutil==7.2.2"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: X11 Applications",
+  "Topic :: Multimedia",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+
+[project.gui-scripts]
+simplemediacompressure = "simplemedia.__main__:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "simplemedia.metadata.VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["simplemedia*"]
+
+[tool.setuptools.package-data]
+simplemedia = ["LICENSE.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["ffmpeg: requires a local FFmpeg and FFprobe installation"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E402"]
+"tests/verify_build.py" = ["E402"]
