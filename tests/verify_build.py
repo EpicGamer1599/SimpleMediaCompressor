@@ -5,7 +5,9 @@ jobs run through the frozen executable, with a regular QueueManager controlling
 their progress, output publication, and history.
 """
 
+import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -18,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from PIL import Image
 
-from simplemedia.ffmpeg import CREATE_FLAGS, detect, run_capture
+from simplemedia.ffmpeg import CREATE_FLAGS, FFmpegInfo, detect, probe_media, run_capture
 from simplemedia.models import (
     TERMINAL,
     AudioOptions,
@@ -32,7 +34,11 @@ from simplemedia.storage import Store
 
 
 def main():
-    exe = (
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--exe", type=Path, help="Executable to validate")
+    parser.add_argument("--bundled", action="store_true", help="Require a self-contained EXE")
+    options = parser.parse_args()
+    exe = options.exe or (
         ROOT
         / "dist/SimpleMediaCompressure"
         / ("SimpleMediaCompressure.exe" if os.name == "nt" else "SimpleMediaCompressure")
@@ -41,6 +47,24 @@ def main():
         raise SystemExit("Build the application first: python build.py")
     directory = ROOT / ".artifacts" / ("packaged-" + str(int(time.time())))
     directory.mkdir(parents=True)
+    env = dict(os.environ, SDL_VIDEODRIVER="dummy", SMC_DATA_DIR=str(directory / "data"))
+    if options.bundled:
+        # Run a copy with no adjacent dependencies and hide installed FFmpeg.
+        standalone = directory / "standalone"
+        standalone.mkdir()
+        exe = Path(shutil.copy2(exe, standalone / exe.name))
+        local = directory / "localappdata"
+        runtime = directory / "runtime"
+        local.mkdir()
+        runtime.mkdir()
+        env.update(
+            PATH=str(Path(os.environ["SystemRoot"]) / "System32"),
+            LOCALAPPDATA=str(local),
+            TEMP=str(runtime),
+            TMP=str(runtime),
+            PYTHONPATH="",
+            PYTHONHOME="",
+        )
     info = detect()
     assert info.available and info.probe, (
         "Install FFmpeg and FFprobe before running full packaged validation."
@@ -70,7 +94,7 @@ def main():
         )
         assert result.returncode == 0, result.stderr
     store = Store(directory / "data")
-    manager = QueueManager(store, info)
+    manager = QueueManager(store, FFmpegInfo() if options.bundled else info)
     jobs = [
         Job(str(path), kind, asdict(options), asdict(OutputOptions()))
         for path, kind, options in [
@@ -84,13 +108,14 @@ def main():
     def packaged_popen(args, *positional, **kwargs):
         if args[:4] == [sys.executable, "-m", "simplemedia", "--worker"]:
             args = [str(exe), *args[3:]]
+            kwargs["env"] = env
         return original_popen(args, *positional, **kwargs)
 
     try:
         with patch("simplemedia.queue.subprocess.Popen", packaged_popen):
             manager.add(jobs)
             manager.start()
-            deadline = time.monotonic() + 90
+            deadline = time.monotonic() + 180
             while time.monotonic() < deadline and (
                 any(j.status not in TERMINAL for j in jobs) or manager.controls
             ):
@@ -99,20 +124,30 @@ def main():
             (j.kind, j.status, j.error) for j in jobs
         ]
         assert all(Path(j.output).stat().st_size > 0 for j in jobs)
+        with Image.open(jobs[0].output) as converted:
+            assert converted.size == (600, 400)
+            converted.load()
+        for job in jobs[1:]:
+            media = probe_media(info, job.output)
+            assert float(media["format"]["duration"]) >= 1
+            assert any(stream["codec_type"] == job.kind for stream in media["streams"])
         print("Packaged image, video and audio workers passed.")
     finally:
         manager.shutdown()
         store.close()
-    env = dict(os.environ, SDL_VIDEODRIVER="dummy", SMC_DATA_DIR=str(directory / "data"))
     screenshot = directory / "queue.png"
     result = subprocess.run(
         [str(exe), "--page", "Queue", "--screenshot", str(screenshot)],
         env=env,
-        timeout=35,
+        timeout=90,
         creationflags=CREATE_FLAGS,
     )
     assert result.returncode == 0 and screenshot.is_file(), "Packaged GUI failed to render"
     print("Packaged GUI passed:", screenshot)
+    if options.bundled:
+        assert list(standalone.iterdir()) == [exe]
+        assert not list(runtime.iterdir()), "The one-file application left extraction files behind"
+        print("Standalone EXE passed with no adjacent dependencies or external FFmpeg paths.")
 
 
 if __name__ == "__main__":

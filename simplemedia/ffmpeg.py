@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 from collections import deque
 from dataclasses import dataclass, field
@@ -56,7 +57,14 @@ def run_capture(args: list[str], timeout: int = 15) -> subprocess.CompletedProce
 
 
 def detect(manual: str = "") -> FFmpegInfo:
-    executable = manual.strip() or shutil.which("ffmpeg") or ""
+    executable = manual.strip()
+    if not executable and getattr(sys, "frozen", False):
+        # PyInstaller one-file builds unpack their bundled tools here.
+        base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+        bundled = base / "ffmpeg" / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+        if bundled.is_file():
+            executable = str(bundled)
+    executable = executable or shutil.which("ffmpeg") or ""
     if not executable and os.name == "nt":
         # WinGet installations can exist before a shell's PATH is refreshed.
         package = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft/WinGet/Packages"

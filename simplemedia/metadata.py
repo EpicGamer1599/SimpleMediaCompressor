@@ -2,7 +2,7 @@
 
 NAME = "SimpleMediaCompressure"
 VERSION = "1.0.0"
-AUTHOR = "SimpleMediaCompressure contributors"
+AUTHOR = "EpicGamer1599"
 LICENSE = "MIT"
 REPOSITORY_URL = ""
 RELEASES_URL = ""

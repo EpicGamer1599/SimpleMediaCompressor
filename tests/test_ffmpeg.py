@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from dataclasses import asdict
 
 import pytest
@@ -122,6 +125,39 @@ def test_real_video(tmp_path, ffmpeg_info, format, codec, audio):
 
 def test_missing_and_invalid_ffmpeg(tmp_path):
     assert not detect(str(tmp_path / "missing" / "ffmpeg.exe")).available
+
+
+@pytest.mark.parametrize("frozen,manual", [(True, False), (True, True), (False, False)])
+def test_bundled_ffmpeg_discovery(tmp_path, monkeypatch, frozen, manual):
+    extension = ".exe" if os.name == "nt" else ""
+    for folder in ("ffmpeg", "external", "selected"):
+        directory = tmp_path / folder
+        directory.mkdir()
+        (directory / ("ffmpeg" + extension)).touch()
+        (directory / ("ffprobe" + extension)).touch()
+    monkeypatch.setattr(sys, "frozen", frozen, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setattr(
+        "simplemedia.ffmpeg.shutil.which",
+        lambda name: str(tmp_path / "external" / (name + extension)),
+    )
+    selected = "selected" if manual else "ffmpeg" if frozen else "external"
+    expected = tmp_path / selected / ("ffmpeg" + extension)
+    calls = []
+
+    def capture(arguments):
+        calls.append(arguments)
+        output = (
+            "ffmpeg version test\n" if "-version" in arguments else " V..... libx264\n A..... aac\n"
+        )
+        return subprocess.CompletedProcess(arguments, 0, stdout=output, stderr="")
+
+    monkeypatch.setattr("simplemedia.ffmpeg.run_capture", capture)
+    result = detect(str(expected) if manual else "")
+    assert result.available and result.encoders == {"libx264", "aac"}
+    assert result.path == str(expected)
+    assert result.probe == str(expected.with_name("ffprobe" + extension))
+    assert len(calls) == 2 and all(call[0] == str(expected) for call in calls)
 
 
 def test_unavailable_encoder_and_safe_args():

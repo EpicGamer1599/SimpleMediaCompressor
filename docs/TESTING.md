@@ -4,10 +4,10 @@ Validated locally on **Windows 11**, using Python **3.12.8**, Pygame CE **2.5.8*
 
 ## Automated checks
 
-The final complete test run finished with **53 passed, 0 failed, 0 skipped**:
+The final complete test run finished with **56 passed, 0 failed, 0 skipped**:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q --basetemp .test-data-final-release
+.\.venv\Scripts\python.exe -m pytest -q --basetemp .test-data-beta-release
 ```
 
 Ruff lint and formatting checks pass. Runtime dependencies are pinned, and the source compiles successfully.
@@ -27,6 +27,7 @@ Ruff lint and formatting checks pass. Runtime dependencies are pinned, and the s
 | Pause / cancel | Image worker suspension and real FFmpeg process-tree suspension/cancellation |
 | File safety | Original preservation, collisions, simultaneous name reservation and failed overwrite protection |
 | Errors | Corrupt media, absent source, missing FFmpeg, unavailable encoder and low free space |
+| Bundled tools | Frozen builds prefer bundled FFmpeg/FFprobe; manual selection takes precedence; source runs use external tools |
 | Restart | Waiting and interrupted active jobs restored stopped; cleared queue entries stay cleared |
 | Persistence | Settings, history, clear-history behavior and corrupted-settings recovery |
 | Pygame UI | All six pages at 1280 × 860 and 980 × 700; real input/dropdown/queue actions |
@@ -37,15 +38,23 @@ Fixtures are generated locally; tests do not download or require personal media.
 
 ## Windows executable
 
-The application was built with **PyInstaller 6.22.2** using `python build.py`. It uses a windowed executable with a custom application icon; FFmpeg is not bundled.
+The **1.0.0beta** Windows x64 release was built with **PyInstaller 6.22.2** using `python build.py --release 1.0.0beta`. The single windowed executable includes Python, its runtime dependencies, FFmpeg and FFprobe, with a custom application icon.
 
-`python tests/verify_build.py` successfully verified:
+```powershell
+.\.venv\Scripts\python.exe tests/verify_build.py --exe release/1.0.0beta/SimpleMediaCompressure.exe --bundled
+```
+
+This successfully verified a copy of the EXE in a folder containing no adjacent dependencies, with PATH restricted to Windows system tools and LOCALAPPDATA redirected away from installed FFmpeg:
 
 1. Actual image, video and audio jobs executed by the frozen application.
-2. Non-empty completed outputs and recorded history through the queue manager.
-3. The frozen GUI rendering its real completed queue to a screenshot and exiting cleanly.
+2. Completed image dimensions, decodable video/audio streams and durations, and recorded history through the queue manager.
+3. The frozen GUI rendering its real completed queue with **FFmpeg ready** and exiting cleanly; the screenshot was inspected.
+4. Automatic discovery of bundled tools without an external FFmpeg path in worker requests.
+5. Cleanup of one-file temporary extraction directories after exit.
 
-Generated builds and validation media live in ignored `dist/`, `build/`, `.artifacts/` and `.test-data-*/` directories.
+The release EXE is **196,378,151 bytes**. Its SHA-256 checksum was checked against `release/1.0.0beta/SHA256SUMS.txt`, and its accompanying MIT license matches the project's `LICENSE` exactly, including **Copyright (c) 2026 EpicGamer1599**.
+
+The default `python build.py` still creates a directory-based development bundle with external FFmpeg. Generated builds and validation media live in ignored `release/`, `dist/`, `build/`, `.artifacts/` and `.test-data-*/` directories.
 
 ## Visual inspection
 

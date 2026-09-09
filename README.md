@@ -21,7 +21,15 @@ A local Python desktop application for compressing images, videos and audio. Bui
 - Keyboard navigation, tooltips, editable paths and a resizable window.
 - No account, telemetry or internet connection required for compression.
 
-## Requirements
+## Windows release
+
+Open `release/1.0.0beta/` and double-click **SimpleMediaCompressure.exe**. This Windows 10/11 x64 release includes Python, the application libraries, FFmpeg and FFprobe in a single executable. No separate installation or internet connection is needed for compression.
+
+Startup takes a little longer while the included tools unpack into the temporary folder; allow roughly 600 MB of free temporary space. Release documentation and third-party licenses accompany the EXE. Keep these notices when sharing the release.
+
+The instructions below describe running and building from source.
+
+## Source requirements
 
 - **Python 3.11 or newer**. Windows uses native OS file dialogs; macOS/Linux use Tkinter. Development and local testing use Python 3.12 on Windows.
 - A desktop display (minimum window size: 980 × 700).
@@ -75,7 +83,7 @@ sudo apt install ffmpeg
 
 Restart your terminal after changing PATH. The app checks PATH, and also recognizes standard Gyan FFmpeg WinGet installations on Windows. In **Settings → FFmpeg**, choose **Detect FFmpeg** or **Select executable** to locate `ffmpeg.exe` / `ffmpeg` manually. The adjacent `ffprobe` executable is detected automatically.
 
-No FFmpeg binary is included in the repository or application bundle. Encoder availability depends on the installed FFmpeg build. A GPU encoder listed by FFmpeg also needs compatible hardware and drivers; select **Hardware: Off** if it fails.
+The source repository and default development bundle use an external FFmpeg installation. The self-contained Windows release includes FFmpeg and FFprobe and detects them automatically. Encoder availability depends on the selected FFmpeg build. A GPU encoder listed by FFmpeg also needs compatible hardware and drivers; select **Hardware: Off** if it fails.
 
 ## Supported formats
 
@@ -157,6 +165,17 @@ python build.py
 
 PyInstaller creates a windowed, directory-based application in `dist/SimpleMediaCompressure/`. On Windows, launch `SimpleMediaCompressure.exe` inside that folder. Distribute the **whole folder**, including `_internal`, not only the executable. FFmpeg stays an external dependency. Builds are unsigned unless you sign them separately.
 
+To build the self-contained Windows x64 release instead:
+
+```sh
+python build.py --release 1.0.0beta
+python tests/verify_build.py --exe release/1.0.0beta/SimpleMediaCompressure.exe --bundled
+```
+
+This creates `release/1.0.0beta/SimpleMediaCompressure.exe`, along with launch instructions, license notices, build information and a SHA-256 checksum. FFmpeg and FFprobe must be available on the build machine; they are included in the resulting EXE. Use `--ffmpeg-dir PATH` to select a full Gyan FFmpeg distribution with its upstream `LICENSE` and `README.txt`. The generated `release/` directory is ignored by Git.
+
+The bundled validation runs the EXE alone in an isolated directory with external FFmpeg paths hidden. It checks real image, video and audio outputs, the packaged GUI, and temporary extraction cleanup.
+
 The same executable launches isolated workers through an internal entry point. Worker progress uses local JSON event files so it also works in a windowed executable or under `pythonw`.
 
 Before publishing, edit [simplemedia/metadata.py](simplemedia/metadata.py) to set the author and real repository/release URLs. The version is defined there once. GitHub/update buttons remain disabled until valid project links are configured. **Check for updates** opens the configured releases page; it does not download or install software.
@@ -197,7 +216,7 @@ The dashboard screenshot above is from the running application. Additional scree
 
 ## License and acknowledgments
 
-SimpleMediaCompressure is available under the [MIT License](LICENSE). Pygame CE, Pillow, psutil, PyInstaller and any separately installed FFmpeg build retain their own licenses.
+SimpleMediaCompressure is available under the [MIT License](LICENSE). Pygame CE, Pillow, psutil, PyInstaller and FFmpeg retain their own licenses. The self-contained release includes third-party license notices in `licenses/` and `THIRD_PARTY_NOTICES.txt`.
 
 Encoder behavior follows the [Pillow format documentation](https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html), [FFmpeg documentation](https://ffmpeg.org/ffmpeg.html), and [FFmpeg codec documentation](https://ffmpeg.org/ffmpeg-codecs.html).
 

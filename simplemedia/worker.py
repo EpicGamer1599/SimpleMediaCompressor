@@ -24,12 +24,15 @@ def main(request: str, events: str) -> None:
 
             compress(job["source"], target, job["options"], emit)
         else:
-            from .ffmpeg import FFmpegInfo, compress
+            from .ffmpeg import FFmpegInfo, compress, detect
 
             info = payload["ffmpeg"]
             info["encoders"] = set(info["encoders"])
+            encoder_info = FFmpegInfo(**info)
+            if getattr(sys, "frozen", False) and not encoder_info.path and not encoder_info.error:
+                encoder_info = detect()
             compress(
-                FFmpegInfo(**info),
+                encoder_info,
                 job["kind"],
                 job["source"],
                 target,
